@@ -1,4 +1,3 @@
-
 import glob
 import os
 import modules.scripts as scripts
@@ -6,6 +5,7 @@ from modules import scripts
 from scripts.roop_globals import EXTENSION_PATH
 from modules.shared import opts
 from scripts.roop_logging import logger
+
 
 def get_models():
     """
@@ -17,7 +17,8 @@ def get_models():
     Returns:
         A list of file paths of the model files.
     """
-    models_path = os.path.join(scripts.basedir(), EXTENSION_PATH, "models", "*")
+    models_path = os.path.join(
+        scripts.basedir(), EXTENSION_PATH, "models", "*")
     models = glob.glob(models_path)
 
     # Add an additional models directory and find files in it
@@ -29,16 +30,20 @@ def get_models():
 
     return models
 
-def get_current_model() -> str :
+
+def get_current_model() -> str:
     model = opts.data.get("roop_model", None)
-    if model is None :
+    if model is None:
         models = get_models()
         model = models[0] if len(models) else None
     logger.info("Try to use model : %s", model)
     if not os.path.isfile(model):
         logger.error("The model %s cannot be found or loaded", model)
-        raise FileNotFoundError("No faceswap model found. Please add it to the roop directory.")
+        raise FileNotFoundError(
+            "No faceswap model found. Please add it to the roop directory."
+        )
     return model
+
 
 def get_face_checkpoints():
     """
@@ -50,6 +55,7 @@ def get_face_checkpoints():
     Returns:
         list: A list of face paths, including the string "None" as the first element.
     """
-    faces_path = os.path.join(scripts.basedir(), "models", "roop", "faces", "*.pkl")
+    faces_path = os.path.join(
+        scripts.basedir(), "models", "roop", "faces", "*.pkl")
     faces = glob.glob(faces_path)
-    return ["None"] + faces
+    return ["None"] + sorted(faces)

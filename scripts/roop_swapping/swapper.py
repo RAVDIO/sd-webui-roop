@@ -49,19 +49,20 @@ def cosine_similarity_face(face1, face2) -> float:
     # Return the maximum of 0 and the calculated similarity as the final similarity score
     return max(0, similarity[0, 0])
 
+
 def compare_faces(img1: Image.Image, img2: Image.Image) -> float:
     """
     Compares the similarity between two faces extracted from images using cosine similarity.
-    
+
     Args:
         img1: The first image containing a face.
         img2: The second image containing a face.
-    
+
     Returns:
-        A float value representing the similarity between the two faces (0 to 1). 
+        A float value representing the similarity between the two faces (0 to 1).
         Returns -1 if one or both of the images do not contain any faces.
     """
-    
+
     # Extract faces from the images
     face1 = get_or_default(get_faces(pil_to_cv2(img1)), 0, None)
     face2 = get_or_default(get_faces(pil_to_cv2(img2)), 0, None)
@@ -70,25 +71,24 @@ def compare_faces(img1: Image.Image, img2: Image.Image) -> float:
     if face1 is not None and face2 is not None:
         # Calculate the cosine similarity between the faces
         return cosine_similarity_face(face1, face2)
-    
+
     # Return -1 if one or both of the images do not contain any faces
     return -1
-
-
 
 
 class FaceModelException(Exception):
     pass
 
+
 @lru_cache(maxsize=1)
 def getAnalysisModel():
     """
     Retrieves the analysis model for face analysis.
-    
+
     Returns:
         insightface.app.FaceAnalysis: The analysis model for face analysis.
     """
-    try :
+    try:
         if not os.path.exists(roop_globals.ANALYZER_DIR):
             os.makedirs(roop_globals.ANALYZER_DIR)
 
@@ -97,10 +97,13 @@ def getAnalysisModel():
         return insightface.app.FaceAnalysis(
             name="buffalo_l", providers=providers, root=roop_globals.ANALYZER_DIR
         )
-    except Exception as e :
-        logger.error("Loading of swapping model failed, please check the requirements (On Windows, download and install Visual Studio. During the install, make sure to include the Python and C++ packages.)")
+    except Exception as e:
+        logger.error(
+            "Loading of swapping model failed, please check the requirements (On Windows, download and install Visual Studio. During the install, make sure to include the Python and C++ packages.)"
+        )
         raise FaceModelException()
-    
+
+
 @lru_cache(maxsize=1)
 def getFaceSwapModel(model_path: str):
     """
@@ -112,11 +115,15 @@ def getFaceSwapModel(model_path: str):
     Returns:
         insightface.model_zoo.FaceModel: The face swap model.
     """
-    try :
+    try:
         # Initializes the face swap model using the specified model path.
-        return upscaled_inswapper.UpscaledINSwapper(insightface.model_zoo.get_model(model_path, providers=providers))
-    except Exception as e :
-        logger.error("Loading of swapping model failed, please check the requirements (On Windows, download and install Visual Studio. During the install, make sure to include the Python and C++ packages.)")
+        return upscaled_inswapper.UpscaledINSwapper(
+            insightface.model_zoo.get_model(model_path, providers=providers)
+        )
+    except Exception as e:
+        logger.error(
+            "Loading of swapping model failed, please check the requirements (On Windows, download and install Visual Studio. During the install, make sure to include the Python and C++ packages.)"
+        )
 
 
 def get_faces(img_data: np.ndarray, det_size=(640, 640), det_thresh : Optional[int]=None, sort_by_face_size = False) -> List[Face]:
@@ -132,7 +139,7 @@ def get_faces(img_data: np.ndarray, det_size=(640, 640), det_thresh : Optional[i
         list: A list of detected faces, sorted by their x-coordinate of the bounding box.
     """
 
-    if det_thresh is None : 
+    if det_thresh is None:
         det_thresh = opts.data.get("roop_detection_threshold", 0.5)
 
     # Create a deep copy of the analysis model (otherwise det_size is attached to the analysis model and can't be changed)
@@ -158,7 +165,6 @@ def get_faces(img_data: np.ndarray, det_size=(640, 640), det_thresh : Optional[i
         return sorted(face, key=lambda x: x.bbox[0])
     except Exception as e:
         return []
-
 
 
 @dataclass
@@ -218,11 +224,14 @@ def get_faces_from_img_files(files):
     if len(files) > 0:
         for file in files:
             img = Image.open(file.name)  # Open the image file
-            face = get_or_default(get_faces(pil_to_cv2(img)), 0, None)  # Extract faces from the image
+            face = get_or_default(
+                get_faces(pil_to_cv2(img)), 0, None
+            )  # Extract faces from the image
             if face is not None:
                 faces.append(face)  # Add the detected face to the list of faces
 
     return faces
+
 
 def blend_faces(faces: List[Face]) -> Face:
     """
@@ -234,16 +243,16 @@ def blend_faces(faces: List[Face]) -> Face:
     Returns:
         Face: The blended Face object with the averaged embedding.
               Returns None if the input list is empty.
-              
+
     Raises:
         ValueError: If the embeddings have different shapes.
 
     """
     embeddings = [face.embedding for face in faces]
-    
+
     if len(embeddings) > 0:
         embedding_shape = embeddings[0].shape
-        
+
         # Check if all embeddings have the same shape
         for embedding in embeddings:
             if embedding.shape != embedding_shape:
@@ -251,15 +260,21 @@ def blend_faces(faces: List[Face]) -> Face:
 
         # Compute the mean of all embeddings
         blended_embedding = np.mean(embeddings, axis=0)
-        
+
         # Create a new Face object using the properties of the first face in the list
         # Assign the blended embedding to the blended Face object
-        blended = Face(embedding=blended_embedding, gender=faces[0].gender, age=faces[0].age)
+        blended = Face(
+            embedding=blended_embedding, gender=faces[0].gender, age=faces[0].age
+        )
 
-        assert not np.array_equal(blended.embedding,faces[0].embedding) if len(faces) > 1 else True, "If len(faces)>0, the blended embedding should not be the same than the first image"
-        
+        assert (
+            not np.array_equal(blended.embedding, faces[0].embedding)
+            if len(faces) > 1
+            else True
+        ), "If len(faces)>0, the blended embedding should not be the same than the first image"
+
         return blended
-    
+
     # Return None if the input list is empty
     return None
 
@@ -289,9 +304,9 @@ def swap_face(
     Returns:
         ImageResult: An object containing the swapped image and similarity scores.
 
-    """    
+    """
     return_result = ImageResult(target_img, {}, {})
-    try :
+    try:
         target_img = cv2.cvtColor(np.array(target_img), cv2.COLOR_RGB2BGR)
         gender = source_face["gender"]
         logger.info("Source Gender %s", gender)
@@ -309,19 +324,22 @@ def swap_face(
             for i, swapped_face in enumerate(target_faces):
                 logger.info(f"swap face {i}")
                 if i in faces_index:
-                    result = face_swapper.get(result, swapped_face, source_face, upscale = upscaled_swapper)
+                    result = face_swapper.get(
+                        result, swapped_face, source_face, upscale=upscaled_swapper
+                    )
 
             result_image = Image.fromarray(cv2.cvtColor(result, cv2.COLOR_BGR2RGB))
             return_result.image = result_image
 
-
-            if compute_similarity :
+            if compute_similarity:
                 try:
                     result_faces = get_faces(
                         cv2.cvtColor(np.array(result_image), cv2.COLOR_RGB2BGR), sort_by_face_size=sort_by_face_size
                     )
                     if same_gender:
-                        result_faces = [x for x in result_faces if x["gender"] == gender]
+                        result_faces = [
+                            x for x in result_faces if x["gender"] == gender
+                        ]
 
                     for i, swapped_face in enumerate(result_faces):
                         logger.info(f"compare face {i}")
@@ -339,13 +357,20 @@ def swap_face(
                 except Exception as e:
                     logger.error("Similarity processing failed %s", e)
                     raise e
-    except Exception as e :
+    except Exception as e:
         logger.error("Conversion failed %s", e)
         raise e
     return return_result
 
 
-def process_image_unit(model, unit : FaceSwapUnitSettings, image: Image.Image, info = None, upscaled_swapper = False, force_blend = False) -> List:
+def process_image_unit(
+    model,
+    unit: FaceSwapUnitSettings,
+    image: Image.Image,
+    info=None,
+    upscaled_swapper=False,
+    force_blend=False,
+) -> List:
     """Process one image and return a List of (image, info) (one if blended, many if not).
 
     Args:
@@ -358,23 +383,26 @@ def process_image_unit(model, unit : FaceSwapUnitSettings, image: Image.Image, i
     """
 
     results = []
-    if unit.enable :
-        if convert_to_sd(image) :
-            return [(image, info)]
-        if not unit.blend_faces and not force_blend :
+    if unit.enable:
+        if not unit.blend_faces and not force_blend:
             src_faces = unit.faces
             logger.info(f"will generate {len(src_faces)} images")
-        else :
+        else:
             logger.info("blend all faces together")
             src_faces = [unit.blended_faces]
-            assert(not np.array_equal(unit.reference_face.embedding,src_faces[0].embedding) if len(unit.faces)>1 else True), "Reference face cannot be the same as blended"
+            assert (
+                not np.array_equal(
+                    unit.reference_face.embedding, src_faces[0].embedding
+                )
+                if len(unit.faces) > 1
+                else True
+            ), "Reference face cannot be the same as blended"
 
-
-        for i,src_face in enumerate(src_faces):
+        for i, src_face in enumerate(src_faces):
             logger.info(f"Process face {i}")
-            if unit.reference_face is not None :
+            if unit.reference_face is not None:
                 reference_face = unit.reference_face
-            else :
+            else:
                 logger.info("Use source face as reference face")
                 reference_face = src_face
 
@@ -392,33 +420,67 @@ def process_image_unit(model, unit : FaceSwapUnitSettings, image: Image.Image, i
             )
             save_img_debug(result.image, "After swap")
 
-            if result.image is None :
+            if result.image is None:
                 logger.error("Result image is None")
-            if (not unit.check_similarity) or result.similarity and all([result.similarity.values()!=0]+[x >= unit.min_sim for x in result.similarity.values()]) and all([result.ref_similarity.values()!=0]+[x >= unit.min_ref_sim for x in result.ref_similarity.values()]):
-                results.append((result.image, f"{info}, similarity = {result.similarity}, ref_similarity = {result.ref_similarity}"))
+            if (
+                (not unit.check_similarity)
+                or result.similarity
+                and all(
+                    [result.similarity.values() != 0]
+                    + [x >= unit.min_sim for x in result.similarity.values()]
+                )
+                and all(
+                    [result.ref_similarity.values() != 0]
+                    + [x >= unit.min_ref_sim for x in result.ref_similarity.values()]
+                )
+            ):
+                suffix = (
+                    f", face={unit.random_face_name}" if unit.random_face_name else ""
+                )
+                results.append(
+                    (
+                        result.image,
+                        f"{info}, similarity = {result.similarity}, ref_similarity = {result.ref_similarity}{suffix}",
+                    )
+                )
             else:
                 logger.warning(
                     f"skip, similarity to low, sim = {result.similarity} (target {unit.min_sim}) ref sim = {result.ref_similarity} (target = {unit.min_ref_sim})"
                 )
     logger.debug("process_image_unit : Unit produced %s results", len(results))
+
+    if unit.has_random_face:
+        unit.randomize_face()
+
     return results
 
-def process_images_units(model, units : List[FaceSwapUnitSettings], images: List[Tuple[Optional[Image.Image], Optional[str]]], upscaled_swapper = False, force_blend = False) -> List:
-    if len(units) == 0 :
+
+def process_images_units(
+    model,
+    units: List[FaceSwapUnitSettings],
+    images: List[Tuple[Optional[Image.Image], Optional[str]]],
+    upscaled_swapper=False,
+    force_blend=False,
+) -> List:
+    if len(units) == 0:
         logger.info("Finished processing image, return %s images", len(images))
         return None
-    
+
     logger.debug("%s more units", len(units))
 
     processed_images = []
-    for i,(image, info) in enumerate(images) :
+    for i, (image, info) in enumerate(images):
         logger.debug("Processing image %s", i)
-        swapped = process_image_unit(model,units[0],image, info, upscaled_swapper, force_blend)
+        swapped = process_image_unit(
+            model, units[0], image, info, upscaled_swapper, force_blend
+        )
         logger.debug("Image %s -> %s images", i, len(swapped))
-        nexts = process_images_units(model,units[1:],swapped, upscaled_swapper,force_blend)
-        if nexts :
+        nexts = process_images_units(
+            model, units[1:], swapped, upscaled_swapper, force_blend
+        )
+        if nexts:
             processed_images.extend(nexts)
-        else :
+        else:
             processed_images.extend(swapped)
-    
+
     return processed_images
