@@ -435,7 +435,7 @@ def process_image_unit(
                 )
             ):
                 suffix = (
-                    f", face={unit.random_face_name}" if unit.random_face_name else ""
+                    f", face={unit.face_name}" if unit.face_name else ""
                 )
                 results.append(
                     (

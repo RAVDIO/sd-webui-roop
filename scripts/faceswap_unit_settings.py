@@ -1,7 +1,7 @@
 from scripts.roop_swapping import swapper
 import numpy as np
 import base64
-import io, pathlib
+import io, pathlib, os
 from dataclasses import dataclass, fields
 from typing import Dict, List, Set, Tuple, Union, Optional
 import dill as pickle
@@ -88,10 +88,14 @@ class FaceSwapUnitSettings:
 
     def randomize_face(self):
         self._using_random_face = True
-        path = random.choice([x for x in get_face_checkpoints() if x != "None"])
+        names = [x for x in get_face_checkpoints() if x != "None"]
+        if self.source_face:
+            names = [name for name in names if self.source_face in name]
+            if not names:
+                names = [x for x in get_face_checkpoints() if x != "None"]
+        path = random.choice(names)
         self.read_reference_face(path)
-        self._rand_face_name = pathlib.Path(path).stem
-        logger.info(f"Randomized face to: {self._rand_face_name}")
+        logger.info(f"Randomized face to: {self.face_name}")
         return path
 
     @property
@@ -99,17 +103,25 @@ class FaceSwapUnitSettings:
         return hasattr(self, "_using_random_face") and self._using_random_face
 
     @property
-    def random_face_name(self):
-        return self._rand_face_name if hasattr(self, "_rand_face_name") else ""
+    def face_name(self):
+        return self._face_name if hasattr(self, "_face_name") else ""
 
     def read_reference_face(self, path: str):
-        with open(path, "rb") as file:
+        self._reference_face = None
+        if os.path.exists(path):
             try:
-                logger.info(f"loading pickle {file.name}")
-                face = Face(pickle.load(file))
-                self._reference_face = face
+                with open(path, "rb") as file:
+                    logger.info(f"loading pickle {file.name}")
+                    self._reference_face = Face(pickle.load(file))
+                    self._face_name = pathlib.Path(path).stem
             except Exception as e:
                 logger.error("Failed to load checkpoint  : %s", e)
+        elif self.source_face:
+            try:
+                self._reference_face = Face(pickle.loads(base64.b64decode(self.source_face)))
+                self._face_name = "base64"
+            except Exception as e:
+                logger.error("Failed to load base64 checkpoint  : %s", e)
 
     @property
     def reference_face(self):
@@ -119,7 +131,7 @@ class FaceSwapUnitSettings:
         """
         if not hasattr(self, "_reference_face"):
             if self.source_face and self.source_face != "None":
-                self.read_reference_face(self.source)
+                self.read_reference_face(self.source_face)
             elif self.source_img is not None:
                 if isinstance(self.source_img, str):  # source_img is a base64 string
                     if (
@@ -175,7 +187,7 @@ class FaceSwapUnitSettings:
         Blend the faces using the mean of all embeddings
         """
         if self.has_random_face:
-            return [self.reference_face]
+            return self.reference_face
 
         if not hasattr(self, "_blended_faces"):
             self._blended_faces = swapper.blend_faces(self.faces)
